@@ -19,21 +19,13 @@ static char UIScrollViewAnimationPullToRefreshView;
 {
     if (!self.pullToRefreshView) {
         AnimationPullToRefreshView *view = [[AnimationPullToRefreshView alloc] initWithFrame:CGRectMake(0, -AnimationPullToRefreshViewHeight, self.bounds.size.width, AnimationPullToRefreshViewHeight)];
+        view.backgroundColor = [UIColor clearColor];
         view.pullToRefreshActionHandler = actionHandler;
         view.scrollView = self;
         view.originalTopInset = self.contentInset.top;
         [self addSubview:view];
         self.pullToRefreshView = view;
         self.showsPullToRefresh = YES;
-        [self addObserver:view forKeyPath:monitorProperty options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:nil];
-        self.backgroundColor = [UIColor yellowColor];
-    }
-}
-
-- (void)dealloc
-{
-    if (self.pullToRefreshView) {
-        [self removeObserver:self.pullToRefreshView forKeyPath:monitorProperty];
     }
 }
 
@@ -77,7 +69,7 @@ static char UIScrollViewAnimationPullToRefreshView;
     if (self) {
         self.currentState = AnimationPullToRefreshStateStopped;
         self.contentMode = UIViewContentModeCenter;
-        self.animationDuration = 0.25;
+        self.animationDuration = 0.5;
         self.animationRepeatCount = 0;
         self.loadingAnimationImages = [NSMutableArray array];
         self.triggerAnimationImages = [NSMutableArray array];
@@ -86,12 +78,29 @@ static char UIScrollViewAnimationPullToRefreshView;
     return self;
 }
 
+- (void)setScrollView:(UIScrollView *)scrollView
+{
+    if (_scrollView) {
+        [_scrollView removeObserver:self forKeyPath:monitorProperty];
+    }
+    _scrollView = scrollView;
+    [_scrollView addObserver:self forKeyPath:monitorProperty options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:nil];
+}
+
+- (void)willMoveToSuperview:(UIView *)newSuperview
+{
+    if (!newSuperview) {
+        [self.superview removeObserver:self forKeyPath:monitorProperty];
+    }
+}
+
 - (void)setCurrentState:(AnimationPullToRefreshState)currentState
 {
     if (_currentState == currentState) {
         return;
     }
     if (currentState == AnimationPullToRefreshStateLoading) {
+        _currentState = currentState;
         if (self.isAnimating) {
             [self stopAnimating];
         }
@@ -107,10 +116,10 @@ static char UIScrollViewAnimationPullToRefreshView;
             [self.scrollView setContentInset:UIEdgeInsetsMake(AnimationPullToRefreshViewHeight + self.originalTopInset, originInset.left, originInset.bottom, originInset.right)];
         } completion:^(BOOL finished) {
             self.pullToRefreshActionHandler();
-            _currentState = currentState;
         }];
     }
     else if (currentState == AnimationPullToRefreshStateTriggered){
+        _currentState = currentState;
         if (self.isAnimating) {
             [self stopAnimating];
         }
@@ -121,7 +130,6 @@ static char UIScrollViewAnimationPullToRefreshView;
             self.animationImages = self.triggerAnimationImages;
             [self startAnimating];
         }
-        _currentState = currentState;
     }
     else {
         if (self.isAnimating) {
@@ -134,7 +142,7 @@ static char UIScrollViewAnimationPullToRefreshView;
             self.animationImages = self.stopAnimationImages;
             [self startAnimating];
         }
-        [UIView animateWithDuration:1 animations:^{
+        [UIView animateWithDuration:0.5 animations:^{
             UIEdgeInsets originInset = self.scrollView.contentInset;
             [self.scrollView setContentInset:UIEdgeInsetsMake(self.originalTopInset, originInset.left, originInset.bottom, originInset.right)];
         } completion:^(BOOL finished) {
@@ -166,7 +174,9 @@ static char UIScrollViewAnimationPullToRefreshView;
 
 - (void)finishTask
 {
-    [self performSelector:@selector(setCurrentState:) withObject:AnimationPullToRefreshStateStopped afterDelay:0];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setCurrentState:AnimationPullToRefreshStateStopped];
+    });
 }
 
 @end
