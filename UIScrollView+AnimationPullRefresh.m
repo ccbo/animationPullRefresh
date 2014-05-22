@@ -32,7 +32,7 @@ static char UIScrollViewAnimationPullToRefreshView;
 - (void)triggerPullToRefresh
 {
     if (self.pullToRefreshView) {
-        [self.pullToRefreshView setCurrentState:AnimationPullToRefreshStateLoading];
+        [self setContentOffset:CGPointMake(0, -AnimationPullToRefreshViewHeight) animated:YES];
     }
 }
 
